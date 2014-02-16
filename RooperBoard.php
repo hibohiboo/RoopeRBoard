@@ -23,22 +23,16 @@
 	
 	
 	//データボード
-	$data=new Image('boards/data.png',DATAWIDTH,DATAHEIGHT,0,0);
-	$canvas_images.=$data->canvas_image;
-	$svg_inner=$data->svg_image;
+	$data=Board::make_data();
+	//データボードのチップ
+	$chip=Chip::make_data('day',1);
+	$chip=Chip::make_data('affair',1);
+	$chip=Chip::make_data('loop',7);
+	$chip=Chip::make_data('extra',0);
 	//４箇所のボード
 	$boards=Board::make_boards();
-	foreach($boards as $value){
-		$svg_inner.=$value->svg_image;
-		$canvas_images.=$value->canvas_image;
-	}
 //	var_dump($data);
-	
-	
-	$chip=CHIP::make('extra',0);
-	$svg_inner.=$chip->svg_image;
-	$canvas_images.=$chip->canvas_image;
-
+	$boards[3]->anyaku(0);
 	
 	
 	$svg= HTML::wrap_tag('svg',$svg_inner,array('xmlns'=>"http://www.w3.org/2000/svg",'version'=>"1.1",'width'=>$CANVASWIDTH,'height'=>$CANVASHEIGHT));
@@ -64,6 +58,7 @@ class Image{
 	public $position_y;
 	public $svg_image;
 	public $canvas_image;
+	public $name;
 	
 	function __construct($src,$width,$height,$position_x,$position_y,$zoom=ZOOM){
 		$this->width=$width*$zoom;
@@ -86,30 +81,86 @@ class Image{
 class Board extends Image{
 	function __construct($name,$position_x,$position_y,$width=BOARDWIDTH,$height=BOARDHEIGHT){
 		$src='boards/'.$name.'.png';
+		$this->name=$name;
 		parent::__construct($src,$width,$height,$position_x,$position_y);
 	}
 	public static function make_boards(){
+		global $svg_inner,$canvas_images;
 		$boardsName=array('hospital','city','shrine','school');
 		$boards[]=new Board($boardsName[0],DATAWIDTH,0);
 		$boards[]=new Board($boardsName[1],DATAWIDTH,BOARDHEIGHT-FILLGAP);
 		$boards[]=new Board($boardsName[2],DATAWIDTH+BOARDWIDTH-FILLGAP,0);
 		$boards[]=new Board($boardsName[3],DATAWIDTH+BOARDWIDTH-FILLGAP,BOARDHEIGHT-FILLGAP);
+		foreach($boards as $value){
+			$svg_inner.=$value->svg_image;
+			$canvas_images.=$value->canvas_image;
+		}
 		return $boards;
 	}
+
+	public static function make_data(){
+		global $svg_inner,$canvas_images;
+		$data=new Image('boards/data.png',DATAWIDTH,DATAHEIGHT,0,0);
+		$canvas_images.=$data->canvas_image;
+		$svg_inner=$data->svg_image;
+		return $data;
+	}
+
+	function anyaku($quantity){
+		global $svg_inner,$canvas_images;
+		if($quantity==0)return;
+		$chip_png='chip_03';
+		$bias_y=$this->position_y;
+		if($this->name=='shrine'||$this->name=='school')
+			$bias_x=$this->position_x+1100;
+		else
+			$bias_x=$this->position_x;
+			
+		if($quantity!=3){
+			$position_x=$bias_x+190;
+			$position_y=$bias_y+45;
+			Chip::make($chip_png,$position_x,$position_y);
+		}
+		if($quantity==2||4<$quantity){
+			$position_x=$bias_x+285;
+			$position_y=$bias_y+100;
+			Chip::make($chip_png,$position_x,$position_y);
+		}
+		if(2<$quantity){
+			$chip_png='chip_06';
+			$position_x=$bias_x+85;
+			$position_y=$bias_y+125;
+			Chip::make($chip_png,$position_x,$position_y);
+		}
+	}
 }
+
+
 class Chip extends Image{
 	function __construct($name,$position_x=0,$position_y=0,$width=CHIPWIDTH,$height=CHIPHEIGHT){
 		$src='chips/'.$name.'.png';
 		parent::__construct($src,$width,$height,$position_x,$position_y,$zoom=ZOOM*0.6);
 	}
 	
-	public static function make($name,$position){
+	public static function make_data($name,$position){
+		global $svg_inner,$canvas_images;
 		$list_position_y=array(540,670,810,950,1080,1220,1350,1490);
 		if($name==='day'){			$chip_png='chip_07';$position_x=15; $position_y=$list_position_y[$position-1];}
 		elseif($name==='affair'){	$chip_png='chip_08';$position_x=160;$position_y=$list_position_y[$position-1];}
 		elseif($name==='loop'){	$chip_png='chip_09';$position_x=310;$position_y=$list_position_y[7-$position];}
 		elseif($name==='extra'){	$chip_png='chip_10';$position_x=460;$position_y=$list_position_y[$position];}
-		return new CHIP($chip_png,$position_x,$position_y);
+		$chip=new Chip($chip_png,$position_x,$position_y);
+		$svg_inner.=$chip->svg_image;
+		$canvas_images.=$chip->canvas_image;
+		return $chip;
+	}
+	
+	public static function make($chip_png,$position_x,$position_y){
+		global $svg_inner,$canvas_images;
+		$chip=new Chip($chip_png,$position_x,$position_y);
+		$svg_inner.=$chip->svg_image;
+		$canvas_images.=$chip->canvas_image;
+		return $chip;
 	}
 }
 
