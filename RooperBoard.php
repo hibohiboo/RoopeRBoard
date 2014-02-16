@@ -1,5 +1,5 @@
 <?PHP
-	define('IMAGEPATH','./tragedy_commons_kai/');
+	define('IMAGEPATH','../../PHP/rooperPHP/tragedy_commons_kai/');
 	define('ZOOM',30/100);
 	define('BOARDWIDTH',1519);
 	define('BOARDHEIGHT',1076);
