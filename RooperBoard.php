@@ -1,6 +1,6 @@
 <?PHP
 	define('IMAGEPATH','../../PHP/rooperPHP/tragedy_commons_kai/');
-	define('ZOOM',30/100);
+	define('ZOOM',100/100);
 	define('BOARDWIDTH',1519);
 	define('BOARDHEIGHT',1076);
 	define('DATAWIDTH',591);
@@ -22,26 +22,35 @@
 	$canvas_images='';
 	
 	
-	
+	//データボード
 	$data=new Image('boards/data.png',DATAWIDTH,DATAHEIGHT,0,0);
+	$canvas_images.=$data->canvas_image;
 	$svg_inner=$data->svg_image;
+	//４箇所のボード
 	$boards=Board::make_boards();
 	foreach($boards as $value){
 		$svg_inner.=$value->svg_image;
-//		$canvas_images.=$value->canvas_image;
+		$canvas_images.=$value->canvas_image;
 	}
 //	var_dump($data);
-	$script=make_javascript($canvas_images);
-	$head='<script>'.$script.'</script>';
+	
+	
+	$chip=CHIP::make('extra',0);
+	$svg_inner.=$chip->svg_image;
+	$canvas_images.=$chip->canvas_image;
+
 	
 	
 	$svg= HTML::wrap_tag('svg',$svg_inner,array('xmlns'=>"http://www.w3.org/2000/svg",'version'=>"1.1",'width'=>$CANVASWIDTH,'height'=>$CANVASHEIGHT));
 	$body.=$svg;
-//	$body.="\n<canvas";
-//	$body .=" style='display:none'";
-//	$body .=" id='canvas' width='".((int)$boards[0]->width*2)."' height='".((int)$boards[0]->height*2)."'></canvas>";
-	$body.="<br><textarea id='text'></textarea><button onclick='makePng();'>png画像を作成</button><br><img src='' alt='png' id='png'>";
 
+	$script=make_javascript($canvas_images);$head='<script>'.$script.'</script>';
+/*
+	$body.="\n<canvas";
+//	$body .=" style='display:none'";
+	$body .=" id='canvas' width='".$CANVASWIDTH."' height='".$CANVASHEIGHT."'></canvas>";
+	$body.="<br><textarea id='text'></textarea><button onclick='makePng();'>png画像を作成</button><br><img src='' alt='png' id='png'>";
+//*/
 include "template.html";
 
 /**********************************************************************/
@@ -56,14 +65,14 @@ class Image{
 	public $svg_image;
 	public $canvas_image;
 	
-	function __construct($src,$width,$height,$position_x,$position_y){
-		$this->width=$width*ZOOM;
-		$this->height=$height*ZOOM;
+	function __construct($src,$width,$height,$position_x,$position_y,$zoom=ZOOM){
+		$this->width=$width*$zoom;
+		$this->height=$height*$zoom;
 		$this->position_x=$position_x*ZOOM;
 		$this->position_y=$position_y*ZOOM;
 		$this->src=IMAGEPATH.$src;
 		$this->svg_image=$this->makeSvgImage();
-//		$this->canvas_image=$this->makeSvgImage();
+		$this->canvas_image=$this->makeCanvasImage();
 	}
 
 	 function makeSvgImage(){
@@ -75,42 +84,43 @@ class Image{
 }
 
 class Board extends Image{
-	function __construct($name,$width,$height,$position_x,$position_y){
+	function __construct($name,$position_x,$position_y,$width=BOARDWIDTH,$height=BOARDHEIGHT){
 		$src='boards/'.$name.'.png';
 		parent::__construct($src,$width,$height,$position_x,$position_y);
 	}
 	public static function make_boards(){
 		$boardsName=array('hospital','city','shrine','school');
-		$boards[]=new Board($boardsName[0],BOARDWIDTH,BOARDHEIGHT,DATAWIDTH,0);
-		$boards[]=new Board($boardsName[1],BOARDWIDTH,BOARDHEIGHT,DATAWIDTH,BOARDHEIGHT-FILLGAP);
-		$boards[]=new Board($boardsName[2],BOARDWIDTH,BOARDHEIGHT,DATAWIDTH+BOARDWIDTH-FILLGAP,0);
-		$boards[]=new Board($boardsName[3],BOARDWIDTH,BOARDHEIGHT,DATAWIDTH+BOARDWIDTH-FILLGAP,BOARDHEIGHT-FILLGAP);
+		$boards[]=new Board($boardsName[0],DATAWIDTH,0);
+		$boards[]=new Board($boardsName[1],DATAWIDTH,BOARDHEIGHT-FILLGAP);
+		$boards[]=new Board($boardsName[2],DATAWIDTH+BOARDWIDTH-FILLGAP,0);
+		$boards[]=new Board($boardsName[3],DATAWIDTH+BOARDWIDTH-FILLGAP,BOARDHEIGHT-FILLGAP);
 		return $boards;
 	}
 }
+class Chip extends Image{
+	function __construct($name,$position_x=0,$position_y=0,$width=CHIPWIDTH,$height=CHIPHEIGHT){
+		$src='chips/'.$name.'.png';
+		parent::__construct($src,$width,$height,$position_x,$position_y,$zoom=ZOOM*0.6);
+	}
+	
+	public static function make($name,$position){
+		$list_position_y=array(540,670,810,950,1080,1220,1350,1490);
+		if($name==='day'){			$chip_png='chip_07';$position_x=15; $position_y=$list_position_y[$position-1];}
+		elseif($name==='affair'){	$chip_png='chip_08';$position_x=160;$position_y=$list_position_y[$position-1];}
+		elseif($name==='loop'){	$chip_png='chip_09';$position_x=310;$position_y=$list_position_y[7-$position];}
+		elseif($name==='extra'){	$chip_png='chip_10';$position_x=460;$position_y=$list_position_y[$position];}
+		return new CHIP($chip_png,$position_x,$position_y);
+	}
+}
+
 
 class Card extends Image{
-	function __construct($name,$position_x,$position_y,$width,$height,$zoom=100){
-		$src='boards/'.$name.'.png';
-		parent::__construct($src,$width,$height);
-		$this->position_x=$position_x*ZOOM;
-		$this->position_y=$position_y*ZOOM;
-		$this->svg_image=HTML::single_tag('image',array('x'=>$this->position_x,'y'=>$this->position_y,'width'=>$this->width,'height'=>$this->height,'xlink:href'=>$this->src));
-		$this->canvas_image="makeImage('".$this->src."',".$this->position_x.",".$this->position_y.",".$this->width.",".$this->height.",context);\n	";
+	function __construct($src,$position_x=0,$position_y=0,$width=CARDWIDTH,$height=CARDWIDTH){
+		parent::__construct($src,$width,$height,$position_x,$position_y);
 	}
 }
 
 
-class Chips extends Image{
-	function __construct($name,$position_x,$position_y,$width,$height,$zoom=100){
-		$src='chips/'.$name.'.png';
-		parent::__construct($src,$width,$height);
-		$this->position_x=$position_x*ZOOM;
-		$this->position_y=$position_y*ZOOM;
-		$this->svg_image=HTML::single_tag('image',array('x'=>$this->position_x,'y'=>$this->position_y,'width'=>$this->width,'height'=>$this->height,'xlink:href'=>$this->src));
-		$this->canvas_image="makeImage('".$this->src."',".$this->position_x.",".$this->position_y.",".$this->width.",".$this->height.",context);\n	";
-	}
-}
 
 
 
@@ -162,7 +172,6 @@ $return  = <<< EOF
 		if ( ! canvas || ! canvas.getContext ) { return false; }
 		var context = canvas.getContext('2d');
 		$makeimages
-		makePng();
 	}
 
 	function makeImage(src,position_x,position_y,width,height,ctx){
