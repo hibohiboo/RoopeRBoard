@@ -1,6 +1,8 @@
 <?PHP
 	define('IMAGEPATH','../../PHP/rooperPHP/tragedy_commons_kai/');
-	define('ZOOM',100/100);
+	define('ZOOM',30/100);
+	define('CARDZOOM',90/100);
+	define('CHIPZOOM',60/100);
 	define('BOARDWIDTH',1519);
 	define('BOARDHEIGHT',1076);
 	define('DATAWIDTH',591);
@@ -8,7 +10,12 @@
 	define('FILLGAP',1);
 	define('CHIPWIDTH',200);
 	define('CHIPHEIGHT',200);
-
+	define('CHIPMARGINLEFT',30);
+	define('CHIPMARGINTOP',50);
+	define('CARDWIDTH',373);
+	define('CARDHEIGHT',526);
+	define('CARDPADDINGLEFT',30);
+	define('CARDPADDINGTOP',50);
 	
 	$CANVASWIDTH=(DATAWIDTH+BOARDWIDTH*2)*ZOOM;
 	$CANVASHEIGHT=BOARDHEIGHT*2*ZOOM;
@@ -32,8 +39,16 @@
 	//４箇所のボード
 	$boards=Board::make_boards();
 //	var_dump($data);
-	$boards[3]->anyaku(0);
+	$boards[0]->set_anyaku(5);
 	
+	$boards[0]->set_character(0,9,1,1);
+	$boards[0]->set_character(1,0,3,1);
+	$boards[0]->set_character(2,0,0,2);
+	$boards[0]->set_character(3,1,4,0);
+	$boards[0]->set_character(4,2,3,0);
+	$boards[0]->set_character(5,0,3,0);
+	$boards[0]->set_character(6,0,2,0);
+	$boards[0]->set_character('神格',1,1,1);
 	
 	$svg= HTML::wrap_tag('svg',$svg_inner,array('xmlns'=>"http://www.w3.org/2000/svg",'version'=>"1.1",'width'=>$CANVASWIDTH,'height'=>$CANVASHEIGHT));
 	$body.=$svg;
@@ -77,11 +92,17 @@ class Image{
 		return "makeImage('".$this->src."',".$this->position_x.",".$this->position_y.",".$this->width.",".$this->height.",context);\n	";
 	}
 }
-
+/*==============================*/
 class Board extends Image{
+	public $charList;
+	const CHIPPOSITIONRIGHT= 1100;
+	const CHARMARGINTOP = 250;
+
+
 	function __construct($name,$position_x,$position_y,$width=BOARDWIDTH,$height=BOARDHEIGHT){
 		$src='boards/'.$name.'.png';
 		$this->name=$name;
+		$this->charList=array();
 		parent::__construct($src,$width,$height,$position_x,$position_y);
 	}
 	public static function make_boards(){
@@ -106,15 +127,15 @@ class Board extends Image{
 		return $data;
 	}
 
-	function anyaku($quantity){
+	function set_anyaku($quantity){
 		global $svg_inner,$canvas_images;
 		if($quantity==0)return;
 		$chip_png='chip_03';
 		$bias_y=$this->position_y;
 		if($this->name=='shrine'||$this->name=='school')
-			$bias_x=$this->position_x+1100;
+			$bias_x=$this->position_x/ZOOM+self::CHIPPOSITIONRIGHT;
 		else
-			$bias_x=$this->position_x;
+			$bias_x=$this->position_x/ZOOM;
 			
 		if($quantity!=3){
 			$position_x=$bias_x+190;
@@ -133,13 +154,84 @@ class Board extends Image{
 			Chip::make($chip_png,$position_x,$position_y);
 		}
 	}
+	function set_character($name,$yuko=0,$huan=0,$anyaku=0){
+		$charnumber=count($this->charList);
+		if($charnumber==0)$bias_y=self::CHARMARGINTOP;
+		elseif(0<$charnumber&&$charnumber<4)$bias_y=CARDPADDINGTOP;
+		elseif(3<$charnumber)$bias_y=CARDPADDINGTOP*2+CARDHEIGHT*CARDZOOM;
+		if($charnumber>4)$charnumber-=4;
+
+		$position_x=$this->position_x/ZOOM+(CARDPADDINGLEFT+CARDWIDTH*CARDZOOM)*$charnumber+30;
+		$position_y=$this->position_y/ZOOM+$bias_y;
+
+		array_push($this->charList,$name);
+		$char=Character::make($name,$position_x,$position_y);
+		$char->set_counters($yuko,$huan,$anyaku);
+		
+	}
 }
 
+/*==============================*/
+
+class Card extends Image{
+	function __construct($src,$position_x=0,$position_y=0,$width=CARDWIDTH,$height=CARDHEIGHT){
+		parent::__construct($src,$width*CARDZOOM,$height*CARDZOOM,$position_x,$position_y);
+	}
+}
+/*==============================*/
+class Character extends Card{
+	public $counter;
+	public $hand=0;
+	function __construct($src,$position_x=0,$position_y=0){
+		$src='chara_cards/'.$src;
+		$this->counter=array();
+		parent::__construct($src,$position_x,$position_y);
+	}
+	public static function make($name_or_number,$position_x=0,$position_y=0){
+		global $svg_inner,$canvas_images;
+		$char_card_list=array('chara_cards_01_00.png','chara_cards_02_00.png','chara_cards_03_00.png','chara_cards_04_00.png','chara_cards_05_00.png','chara_cards_06_00.png','chara_cards_07_00.png','chara_cards_08_00.png','chara_cards_09_00.png','chara_cards_10_00.png','chara_cards_11_00.png','chara_cards_12_00.png','chara_cards_13_00.png','chara_cards_14_00.png','chara_cards_15_00.png','chara_cards_16_00.png','chara_cards_17_00.png','chara_cards_18_00.png','chara_cards_19_00.png','chara_cards_20_00.png');
+		$char_list=array("男子学生","女子学生","お嬢様","巫女","刑事","サラリーマン","情報屋","医者","患者","委員長","イレギュラー","異世界人","神格","アイドル","マスコミ","大物","ナース","手先","学者","幻想");
+		$check_name=array_search($name_or_number,$char_list);
+		if($check_name===false)$char_png=$char_card_list[$name_or_number];
+		else $char_png=$char_card_list[$check_name];
+		
+		$char=new Character($char_png,$position_x,$position_y);
+		$svg_inner.=$char->svg_image;
+		$canvas_images.=$char->canvas_image;
+		return $char;
+	}
+	function set_counters($yuko,$huan,$anyaku){
+		$step=0;
+		if(0<$yuko)		$this->pre_set_counter('友好',$yuko,$step++);
+		if(0<$huan)		$this->pre_set_counter('不安',$huan,$step++);
+		if(0<$anyaku)	$this->pre_set_counter('暗躍',$anyaku,$step++);
+	}
+	function pre_set_counter($kind,$counter,$step){
+		if($kind==='友好'){		$small_chip='chip_01';$big_chip='chip_04';}
+		elseif($kind==='不安'){	$small_chip='chip_02';$big_chip='chip_05';}
+		elseif($kind==='暗躍'){	$small_chip='chip_03';$big_chip='chip_06';}
+		$big_number=floor($counter/3);
+		$small_number=$counter%3;
+		for($i=0;$i<$big_number;$i++)$this->set_counter($big_chip,$i,$step);
+		for($i=0;$i<$small_number;$i++)$this->set_counter($small_chip,$i+$big_number,$step);
+	}
+	function set_counter($chip,$quantity,$step){//$quantity
+		$position_x=$this->position_x/ZOOM+CHIPMARGINLEFT+$quantity*CHIPWIDTH*CHIPZOOM/2;
+		$position_y=$this->position_y/ZOOM+CHIPMARGINTOP+CHIPHEIGHT*CHIPZOOM*$step/1.3;
+		Chip::make($chip,$position_x,$position_y);
+	}
+	
+	function set_hand($hand){
+		$position_x=$this->position_x/ZOOM+HANDMARGINLEFT+$quantity*CHIPWIDTH*CHIPZOOM/2;
+		$position_y=$this->position_y/ZOOM+CHIPMARGINTOP+CHIPHEIGHT*CHIPZOOM*$step/1.3;
+	}
+}
+/*==============================*/
 
 class Chip extends Image{
 	function __construct($name,$position_x=0,$position_y=0,$width=CHIPWIDTH,$height=CHIPHEIGHT){
 		$src='chips/'.$name.'.png';
-		parent::__construct($src,$width,$height,$position_x,$position_y,$zoom=ZOOM*0.6);
+		parent::__construct($src,$width*CHIPZOOM,$height*CHIPZOOM,$position_x,$position_y);
 	}
 	
 	public static function make_data($name,$position){
@@ -164,17 +256,7 @@ class Chip extends Image{
 	}
 }
 
-
-class Card extends Image{
-	function __construct($src,$position_x=0,$position_y=0,$width=CARDWIDTH,$height=CARDWIDTH){
-		parent::__construct($src,$width,$height,$position_x,$position_y);
-	}
-}
-
-
-
-
-
+/*==============================*/
 class HTML {
 	public static function header_link(){
 		if(preg_match("/\.css$/",func_get_arg(0))==true){$tag='link';$rel='stylesheet';}
@@ -210,6 +292,7 @@ class HTML {
 	}
 
 }
+/*==============================*/
 /****************************************************************************/
 function make_javascript($makeimages){
 $return  = <<< EOF
