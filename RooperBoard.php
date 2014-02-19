@@ -16,6 +16,8 @@
 	define('CARDHEIGHT',526);
 	define('CARDPADDINGLEFT',30);
 	define('CARDPADDINGTOP',50);
+	define('HANDMARGINLEFT',CARDWIDTH*1/9);
+	define('HANDMARGINTOP',CARDHEIGHT*2/5);
 	
 	$CANVASWIDTH=(DATAWIDTH+BOARDWIDTH*2)*ZOOM;
 	$CANVASHEIGHT=BOARDHEIGHT*2*ZOOM;
@@ -41,15 +43,15 @@
 //	var_dump($data);
 	$boards[0]->set_anyaku(5);
 	
-	$boards[0]->set_character(0,9,1,1);
+	$boards[1]->set_character(0,9,1,1);
 	$boards[0]->set_character(1,0,3,1);
-	$boards[0]->set_character(2,0,0,2);
+	$boards[2]->set_character(2,0,0,2);
 	$boards[0]->set_character(3,1,4,0);
 	$boards[0]->set_character(4,2,3,0);
 	$boards[0]->set_character(5,0,3,0);
 	$boards[0]->set_character(6,0,2,0);
-	$boards[0]->set_character('神格',1,1,1);
-	
+	$char=$boards[0]->set_character('神格',1,1,1);
+	$char->set_hand_name('writer','暗躍+2');
 	$svg= HTML::wrap_tag('svg',$svg_inner,array('xmlns'=>"http://www.w3.org/2000/svg",'version'=>"1.1",'width'=>$CANVASWIDTH,'height'=>$CANVASHEIGHT));
 	$body.=$svg;
 
@@ -86,10 +88,10 @@ class Image{
 	}
 
 	 function makeSvgImage(){
-		return HTML::single_tag('image',array('x'=>$this->position_x,'y'=>$this->position_y,'width'=>$this->width,'height'=>$this->height,'xlink:href'=>$this->src));
+		return HTML::single_tag('image',array('x'=>intval($this->position_x),'y'=>intval($this->position_y),'width'=>intval($this->width),'height'=>intval($this->height),'xlink:href'=>$this->src));
 	}
 	function makeCanvasImage(){
-		return "makeImage('".$this->src."',".$this->position_x.",".$this->position_y.",".$this->width.",".$this->height.",context);\n	";
+		return "['".$this->src."',".intval($this->position_x).",".intval($this->position_y).",".intval($this->width).",".intval($this->height)."],";
 	}
 }
 /*==============================*/
@@ -159,7 +161,7 @@ class Board extends Image{
 		if($charnumber==0)$bias_y=self::CHARMARGINTOP;
 		elseif(0<$charnumber&&$charnumber<4)$bias_y=CARDPADDINGTOP;
 		elseif(3<$charnumber)$bias_y=CARDPADDINGTOP*2+CARDHEIGHT*CARDZOOM;
-		if($charnumber>4)$charnumber-=4;
+		if($charnumber>3)$charnumber-=3;
 
 		$position_x=$this->position_x/ZOOM+(CARDPADDINGLEFT+CARDWIDTH*CARDZOOM)*$charnumber+30;
 		$position_y=$this->position_y/ZOOM+$bias_y;
@@ -167,7 +169,7 @@ class Board extends Image{
 		array_push($this->charList,$name);
 		$char=Character::make($name,$position_x,$position_y);
 		$char->set_counters($yuko,$huan,$anyaku);
-		
+		return $char;
 	}
 }
 
@@ -176,6 +178,13 @@ class Board extends Image{
 class Card extends Image{
 	function __construct($src,$position_x=0,$position_y=0,$width=CARDWIDTH,$height=CARDHEIGHT){
 		parent::__construct($src,$width*CARDZOOM,$height*CARDZOOM,$position_x,$position_y);
+	}
+	public static function make($src,$position_x=0,$position_y=0){
+		global $svg_inner,$canvas_images;
+		$card=new Card($src,$position_x,$position_y);
+		$svg_inner.=$card->svg_image;
+		$canvas_images.=$card->canvas_image;
+		return $card;
 	}
 }
 /*==============================*/
@@ -221,9 +230,17 @@ class Character extends Card{
 		Chip::make($chip,$position_x,$position_y);
 	}
 	
-	function set_hand($hand){
-		$position_x=$this->position_x/ZOOM+HANDMARGINLEFT+$quantity*CHIPWIDTH*CHIPZOOM/2;
-		$position_y=$this->position_y/ZOOM+CHIPMARGINTOP+CHIPHEIGHT*CHIPZOOM*$step/1.3;
+	function set_hand_name($player,$hand_name){
+		if($player=='writer')	$hand_list=array('裏'=>'0b','不安+1'=>'01','不安+1'=>'02','不安-1'=>'03','不安禁止'=>'04','友好禁止'=>'05','暗躍+1'=>'06','暗躍+2'=>'07','移動上下'=>'08','移動左右'=>'09','移動斜め'=>'10');
+		else 					$hand_list=array('裏'=>'0b','不安+1'=>'01','不安-1'=>'02','友好+1'=>'03','友好+2'=>'04','暗躍禁止'=>'05','移動上下'=>'06','移動左右'=>'07','移動禁止'=>'08');
+		$this->set_hand($player,$hand_list[$hand_name]);
+	}
+	
+	function set_hand($player,$hand_number){
+		$src='action_cards/'.'a_'.$player.'_cards_'.$hand_number.'.png';
+		$position_x=$this->position_x/ZOOM+HANDMARGINLEFT;
+		$position_y=$this->position_y/ZOOM+HANDMARGINTOP;
+		Card::make($src,$position_x,$position_y);
 	}
 }
 /*==============================*/
@@ -294,7 +311,8 @@ class HTML {
 }
 /*==============================*/
 /****************************************************************************/
-function make_javascript($makeimages){
+function make_javascript($canvas_images){
+	$canvas_images=rtrim($canvas_images, ",");//最後のコンマを削除
 $return  = <<< EOF
 
 	$(document).ready(function(){
@@ -305,19 +323,23 @@ $return  = <<< EOF
 		var canvas = document.getElementById('canvas');
 		if ( ! canvas || ! canvas.getContext ) { return false; }
 		var context = canvas.getContext('2d');
-		$makeimages
+		var canvas_images=[$canvas_images];
+		recursion_makeImages(canvas_images[0][0],canvas_images[0][1],canvas_images[0][2],canvas_images[0][3],canvas_images[0][4],context,canvas_images,canvas_images.length,0);
 	}
-
-	function makeImage(src,position_x,position_y,width,height,ctx){
-		/* Imageオブジェクトを生成 */
+	function recursion_makeImages(src,position_x,position_y,width,height,ctx,arr,length,i){
+		//* Imageオブジェクトを生成 
 		var img = new Image();
 		img.src = src+'?' + new Date().getTime();
-		/* 画像が読み込まれるのを待ってから処理を続行 */
+		//* 画像が読み込まれるのを待ってから処理を続行 
 		$(img).load(function() {
-			ctx.drawImage(img,position_x,position_y,width,height);
+			if(i<length){
+				ctx.drawImage(img,position_x,position_y,width,height);
+				i++;
+				recursion_makeImages(arr[i][0],arr[i][1],arr[i][2],arr[i][3],arr[i][4],ctx,arr,length,i);
+			}
 		});
 	}
-
+	
 	function makePng(){
 		var canvas = document.getElementById('canvas');
 		var url=canvas.toDataURL();
