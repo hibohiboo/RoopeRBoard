@@ -1,6 +1,10 @@
 <?PHP
 	define('IMAGEPATH','../../PHP/rooperPHP/tragedy_commons_kai/');
-	define('ZOOM',30/100);
+	if(isset($_GET['m'])==true){
+		define('ZOOM',intval($_GET['m'])/100);
+	}else{
+		define('ZOOM',30/100);
+	}
 	define('CARDZOOM',90/100);
 	define('CHIPZOOM',60/100);
 	define('BOARDWIDTH',1519);
@@ -17,7 +21,11 @@
 	define('CARDPADDINGLEFT',30);
 	define('CARDPADDINGTOP',50);
 	define('HANDMARGINLEFT',CARDWIDTH*1/9);
-	define('HANDMARGINTOP',CARDHEIGHT*1/5);
+	define('HANDMARGINTOP',CARDHEIGHT*1/5/8);
+	define('OPENHANDMARGINLEFT',CARDWIDTH*1/9);
+	define('OPENHANDMARGINTOP',CARDHEIGHT*1/2);
+	
+	
 	
 	$CANVASWIDTH=(DATAWIDTH+BOARDWIDTH*2)*ZOOM;
 	$CANVASHEIGHT=BOARDHEIGHT*2*ZOOM;
@@ -37,34 +45,70 @@
 	//データボード
 	$data=Board::make_data();
 	//データボードのチップ
-	$chip=Chip::make_data('day',1);
-	$chip=Chip::make_data('affair',1);
-	$chip=Chip::make_data('loop',7);
-	$chip=Chip::make_data('extra',0);
+
+	if(isset($_GET['d'])==true)$chip=Chip::make_data('day',intval($_GET['d']));
+	if(isset($_GET['l'])==true)$chip=Chip::make_data('loop',intval($_GET['l']));
+	if(isset($_GET['e'])==true)$chip=Chip::make_data('extra',intval($_GET['e']));
+	for($i=1;$i<9;$i++){
+		if(isset($_GET['j'.$i])==true)$chip=Chip::make_data('affair',intval($_GET['j'.$i]));
+	}
+
 	//４箇所のボード
 	$boards=Board::make_boards();
 //	var_dump($data);
-	$boards[0]->set_anyaku(5);
-	
-	$boards[1]->set_character(0)->set_hand('writer','0b')->set_hand('heroB','0b')->set_counters(9,1,1)->end_g();
+	for($i=0;$i<4;$i++){
+		//if(isset($_GET['b'.$i])===false){$_GET['b'.$i]=0;}
+		$boards[$i]->set_anyaku($_GET['b'.$i]);
+	}
+	for($i=0;$i<20;$i++){
+		if(isset($_GET['u'.$i])===true){
+			if(isset($_GET['d'.$i])===true){
+				$char=$boards[$_GET['p'.$i]]->set_character($i,'die');
+			}else{
+				$char=$boards[$_GET['p'.$i]]->set_character($i);
+			}
+			foreach(array('w','r','i') as $w){
+				if($_GET['r'.$w]==$i){
+					$char->set_hand('writer',$_GET[$w]);
+				}
+			}
+			foreach(array('A','B','C') as $w){
+				if($_GET['r'.$w]==$i){
+					$char->set_hand('hero'.$w,$_GET[$w]);
+				}
+			}
+			$char->set_counters($_GET['y'.$i],$_GET['h'.$i],$_GET['a'.$i]);
+			if(isset($_GET['d'.$i])===true){
+				$char->end_g();
+			}
+		}
+	}
+	/*
+	$boards[1]->set_character(0,'')->set_hand('writer','0b')->set_hand('heroB','0b')->set_counters(9,1,1)->end_g();
 	$boards[0]->set_character(1)->set_hand('heroC','0b')->set_counters(0,3,1);
 	$boards[2]->set_character(2)->set_counters(0,0,2);
-	$boards[0]->set_character(3)->set_counters(1,4,0);
+	$boards[0]->set_character(3,'g')->set_counters(1,4,0)->end_g();
 	$boards[0]->set_character(4)->set_counters(2,3,0);
 	$boards[0]->set_character(5)->set_hand('heroA','02')->set_counters(0,3,0);
 	$boards[0]->set_character(6)->set_counters(0,2,0);
 	$boards[0]->set_character('神格','g');
+	*/
 	$svg= HTML::wrap_tag('svg',$svg_inner,array('xmlns'=>"http://www.w3.org/2000/svg",'version'=>"1.1",'width'=>$CANVASWIDTH,'height'=>$CANVASHEIGHT));
 	$body.=$svg;
-
-	$script=make_javascript($canvas_images);$head='<script>'.$script.'</script>';
-
-	$body.="\n<canvas";
-	$body .=" style='display:none'";
-	$body .=" id='canvas' width='".$CANVASWIDTH."' height='".$CANVASHEIGHT."'></canvas>";
-	$body.="<br><textarea style='display:none' id='text'></textarea>";
-	$body.="<button onclick='makePng();'>png画像を作成</button><br>";
-	$body.="<div style='width:$CANVASWIDTH"."px;height:$CANVASHEIGHT"."px;border:solid 3px #000000;'><img width='$CANVASWIDTH' height='$CANVASHEIGHT' src='' alt='png' id='png'></div>";
+	
+	if(isset($_GET['o'])===true&&$_GET['o']==='1'){
+		//$script='';
+		$head='';
+	}else{
+		$script=make_javascript($canvas_images);$head='<script>'.$script.'</script>';
+		$body.="\n<canvas";
+		$body .=" style='display:none'";
+		$body .=" id='canvas' width='".$CANVASWIDTH."' height='".$CANVASHEIGHT."'></canvas>";
+		$body.="<br><textarea style='display:none' id='text'></textarea>";
+		$body.="<button onclick='makePng();'>png画像を作成</button><br>";
+		$body.="<progress id='progress' value='80' max='100'>現在、画像をダウンロード中です。</progress><span id='imgmessage'>ただいまpng画像準備中です。</span><br>";
+		$body.="<div style='width:$CANVASWIDTH"."px;height:$CANVASHEIGHT"."px;border:solid 3px #000000;'><img width='$CANVASWIDTH' height='$CANVASHEIGHT' src='' alt='png' id='png'></div>";
+	}
 //
 include "template.html";
 
@@ -143,7 +187,7 @@ class Board extends Image{
 		//global $svg_inner,$canvas_images;
 		if($quantity==0)return;
 		$chip_png='chip_03';
-		$bias_y=$this->position_y;
+		$bias_y=$this->position_y/ZOOM;
 		if($this->name=='shrine'||$this->name=='school')
 			$bias_x=$this->position_x/ZOOM+self::CHIPPOSITIONRIGHT;
 		else
@@ -173,10 +217,9 @@ class Board extends Image{
 		elseif(0<$charnumber&&$charnumber<4)$bias_y=CARDPADDINGTOP;
 		elseif(3<$charnumber)$bias_y=CARDPADDINGTOP*2+CARDHEIGHT*CARDZOOM;
 		if($charnumber>3)$charnumber-=3;
-
 		$position_x=$this->position_x/ZOOM+(CARDPADDINGLEFT+CARDWIDTH*CARDZOOM)*$charnumber+30;
 		$position_y=$this->position_y/ZOOM+$bias_y;
-		if($g){
+		if($g!==false){
 			$canvas_rotate_x=($position_x+CARDWIDTH*CARDZOOM/2)*ZOOM;
 			$canvas_rotate_y=($position_y+CARDHEIGHT*CARDZOOM/2)*ZOOM;
 			$flg_canvas_rotate=1;
@@ -259,10 +302,14 @@ class Character extends Card{
 		if($player=='' || $hand_number=='')return $this;
 		$src='action_cards/'.'a_'.$player.'_cards_'.$hand_number.'.png';
 		$bias_x= $player==='writer' ? 0 : HANDMARGINLEFT;
-		$bias_y= $player==='writer' ? 0 : HANDMARGINTOP/8;
+		$bias_y= $player==='writer' ? 0 : HANDMARGINTOP;
 		
 		$position_x=$this->position_x/ZOOM+HANDMARGINLEFT+$bias_x;
 		$position_y=$this->position_y/ZOOM+HANDMARGINTOP+$bias_y;
+		if($player!='writer'&&$hand_number!='0b'){
+			$position_x+=OPENHANDMARGINLEFT;
+			$position_y+=OPENHANDMARGINTOP;
+		}
 		Card::make($src,$position_x,$position_y);
 		return $this;
 	}
@@ -281,10 +328,12 @@ class Chip extends Image{
 		parent::__construct($src,$width*CHIPZOOM,$height*CHIPZOOM,$position_x,$position_y);
 	}
 	
-	public static function make_data($name,$position){
+	public static function make_data($name=1,$position=1){
+		if($name==''||$position=='')return;
+		$position=intval($position);
 		//global $svg_inner,$canvas_images;
 		$list_position_y=array(540,670,810,950,1080,1220,1350,1490);
-		if($name==='day'){			$chip_png='chip_07';$position_x=15; $position_y=$list_position_y[$position-1];}
+		if($name=='day'){			$chip_png='chip_07';$position_x=15; $position_y=$list_position_y[$position-1];}
 		elseif($name==='affair'){	$chip_png='chip_08';$position_x=160;$position_y=$list_position_y[$position-1];}
 		elseif($name==='loop'){	$chip_png='chip_09';$position_x=310;$position_y=$list_position_y[7-$position];}
 		elseif($name==='extra'){	$chip_png='chip_10';$position_x=460;$position_y=$list_position_y[$position];}
@@ -378,7 +427,12 @@ $return  = <<< EOF
 			i++;
 			// 戻す
 			ctx.restore();
-			if(i==length)return;
+			if(i==length){
+				$('#progress').val(100);
+				$('#button').attr("disabled",false);
+				$('#imgmessage').html("png画像を作成する準備ができました。");
+				return;
+			}
 			recursion_makeImages(arr[i][0],arr[i][1],arr[i][2],arr[i][3],arr[i][4],ctx,arr,length,i,rotate);
 		});
 	}
