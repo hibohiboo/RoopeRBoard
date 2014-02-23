@@ -1,0 +1,19 @@
+table{border:solid 1px #000000;border-collapse:collapse;}
+th,td{border-top:solid 1px #000000;border-bottom:solid 1px #000000;}
+input[type="number"]{ime-mode:disabled;}
+
+tr:hover {
+  background: #ffff00;
+}
+
+td:hover {
+  background: #ffff00;
+}
+
+
+#ctr20,#ctr21{
+	display:none;
+}
+.kasi{
+	display:none;
+}
